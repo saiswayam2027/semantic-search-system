@@ -1,268 +1,129 @@
-# Semantic Search System with Fuzzy Clustering and Semantic Cache
+# Semantic Search API with Fuzzy Clustering and Semantic Cache
 
 ## Overview
 
-This project implements a **lightweight semantic search system** built on the **20 Newsgroups dataset**.  
-The system performs semantic retrieval using vector embeddings, fuzzy clustering, and a semantic caching layer exposed through a FastAPI service.
+This project implements a semantic search system exposed through a FastAPI service.
+The system uses sentence embeddings to understand the meaning of queries, clusters them into topics, and uses a semantic cache to reuse results for similar queries.
 
-The objective is to design a system capable of understanding **semantic similarity between queries**, reducing redundant computations through an intelligent caching mechanism.
+The goal is to reduce redundant computation by returning cached results for semantically similar queries.
 
-Dataset:  
-https://archive.ics.uci.edu/dataset/113/twenty+newsgroups
+## Features
 
----
-
-# System Architecture
-
-The system consists of four major components:
-
-1. **Embedding + Vector Database**
-2. **Fuzzy Clustering**
-3. **Semantic Cache**
-4. **FastAPI API Service**
-
-Pipeline:
-
-```
-User Query
-     ↓
-Query Embedding
-     ↓
-Semantic Cache Lookup
-     ↓
-(Cache Miss)
-Cluster Identification
-     ↓
-Vector Search (ChromaDB)
-     ↓
-Results Returned + Stored in Cache
-```
+* Sentence embeddings using SentenceTransformers
+* Topic clustering using TF-IDF + NMF
+* Semantic cache using cosine similarity
+* FastAPI REST API
+* Docker support
+* Automatic cache statistics
 
 ---
 
-# Part 1 — Embeddings & Vector Database
+## Project Structure
 
-Documents are converted into vector embeddings using the **Sentence Transformers model**:
+semantic-search-system
+│
+├── semantic_search.ipynb   # notebook used for model creation
+├── main.py                 # FastAPI server implementation
+├── requirements.txt        # dependencies
+├── Dockerfile              # container configuration
+├── README.md               # project documentation
+└── .gitignore              # ignored files
 
-```
-all-MiniLM-L6-v2
-```
-
-Reasons for choosing this model:
-
-- Lightweight and fast
-- Good semantic representation quality
-- Suitable for real-time inference
-
-Embeddings are stored in **ChromaDB**, a lightweight vector database that supports efficient similarity search.
+Note: `clusterer.pkl` is not included in the repository because of GitHub file size limits.
 
 ---
 
-# Part 2 — Fuzzy Clustering
+## Installation
 
-The semantic structure of the corpus is discovered using:
+Clone the repository:
 
-```
-TF-IDF + Non-negative Matrix Factorization (NMF)
-```
+git clone <your-repository-url>
 
-Unlike hard clustering, NMF produces **soft topic distributions**, allowing a document to belong to multiple clusters.
-
-Example cluster distribution:
-
-```
-Document Topic Distribution
-
-Cluster 2 → 0.42
-Cluster 9 → 0.33
-Cluster 13 → 0.21
-Cluster 5 → 0.04
-```
-
-This reflects the overlapping semantic nature of the dataset.
-
----
-
-# Part 3 — Semantic Cache
-
-Traditional caches only work when queries match exactly.
-
-This project implements a **semantic cache** that recognizes queries with similar meaning.
-
-Example:
-
-Query 1:
-```
-Tell me about space exploration missions
-```
-
-Query 2:
-```
-NASA missions and space travel
-```
-
-Even though phrasing differs, the system detects semantic similarity and retrieves cached results.
-
-Similarity is computed using:
-
-```
-Cosine similarity between query embeddings
-```
-
-The cache tracks:
-
-```
-total_entries
-hit_count
-miss_count
-hit_rate
-```
-
-No external caching systems (Redis / Memcached) were used.
-
----
-
-# Part 4 — FastAPI Service
-
-The system exposes a REST API using **FastAPI**.
-
-## POST /query
-
-Request:
-
-```json
-{
-  "query": "Tell me about space exploration missions"
-}
-```
-
-Response:
-
-```json
-{
-  "query": "...",
-  "cache_hit": true,
-  "matched_query": "...",
-  "similarity_score": 0.91,
-  "result": "...",
-  "dominant_cluster": 3
-}
-```
-
----
-
-## GET /cache/stats
-
-Returns cache statistics.
-
-Example:
-
-```json
-{
-  "total_entries": 42,
-  "hit_count": 17,
-  "miss_count": 25,
-  "hit_rate": 0.405
-}
-```
-
----
-
-## DELETE /cache
-
-Clears the cache and resets statistics.
-
-Response:
-
-```json
-{
-  "message": "Cache flushed."
-}
-```
-
----
-
-# Installation
-
-### 1. Clone repository
-
-```
-git clone <repo-url>
 cd semantic-search-system
-```
 
-### 2. Create virtual environment
+Install dependencies:
 
-```
-python -m venv venv
-source venv/bin/activate
-```
-
-Windows:
-
-```
-venv\Scripts\activate
-```
-
-### 3. Install dependencies
-
-```
 pip install -r requirements.txt
-```
 
 ---
 
-# Running the System
+## Running the API
 
-Run the notebook and execute cells sequentially.
+Start the FastAPI server:
 
-The FastAPI server will start automatically when the server cell is executed.
+uvicorn main:app --host 0.0.0.0 --port 8000
 
-Once running, the API is available at:
+Open the interactive API documentation:
 
-```
-http://localhost:8001
-```
-
-Swagger documentation:
-
-```
-http://localhost:8001/docs
-```
+http://localhost:8000/docs
 
 ---
 
-# Example Queries
+## API Endpoints
 
-```
-Tell me about space exploration missions
-NASA missions and space travel
-How does encryption work?
-What are graphics cards used for?
-```
+### Query Endpoint
+
+POST /query
+
+Example request:
+
+{
+"query": "Explain NASA missions"
+}
+
+Example response:
+
+{
+"query": "Explain NASA missions",
+"cache_hit": true,
+"matched_query": "Tell me about space exploration missions",
+"similarity_score": 0.80,
+"result": "Query processed. Dominant cluster: 0",
+"dominant_cluster": 0
+}
 
 ---
 
-# Technologies Used
+### Cache Statistics
 
-- Python
-- Sentence Transformers
-- ChromaDB
-- Scikit-Learn
-- NMF Topic Modeling
-- FastAPI
-- NumPy / Pandas
+GET /cache/stats
+
+Returns statistics about cache usage.
 
 ---
 
-# Key Highlights
+### Clear Cache
 
-- Semantic query understanding
-- Fuzzy clustering of documents
-- Custom semantic cache (no external libraries)
-- Real-time API service
-- Vector database integration
+DELETE /cache
 
+Clears the semantic cache.
+
+---
+
+## Running with Docker
+
+Build the container:
+
+docker build -t semantic-search .
+
+Run the container:
+
+docker run -p 8000:8000 semantic-search
+
+Then open:
+
+http://localhost:8000/docs
+
+---
+
+## Technologies Used
+
+* Python
+* FastAPI
+* SentenceTransformers
+* Scikit-learn
+* NumPy
+* Docker
 ---
 
 # Author
